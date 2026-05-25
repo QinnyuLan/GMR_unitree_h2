@@ -86,27 +86,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--enable_foot_lock",
-        default=False,
-        action="store_true",
-        help="Lock low foot targets to the ground to reduce support-foot sliding.",
-    )
-
-    parser.add_argument(
-        "--foot_lock_height",
-        default=0.08,
-        type=float,
-        help="Foot target height threshold in meters for enabling support-foot lock.",
-    )
-
-    parser.add_argument(
-        "--foot_unlock_height",
-        default=0.10,
-        type=float,
-        help="Foot target height threshold in meters for releasing support-foot lock.",
-    )
-
-    parser.add_argument(
         "--hide_targets",
         default=False,
         action="store_true",
@@ -137,9 +116,6 @@ if __name__ == "__main__":
         src_human="smplx",
         tgt_robot=args.robot,
         ground_clearance=args.ground_clearance,
-        enable_foot_lock=args.enable_foot_lock,
-        foot_lock_height=args.foot_lock_height,
-        foot_unlock_height=args.foot_unlock_height,
     )
     
     robot_motion_viewer = RobotMotionViewer(robot_type=args.robot,
