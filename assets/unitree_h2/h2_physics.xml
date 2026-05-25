@@ -252,21 +252,21 @@
     </body>
   </worldbody>
   <actuator>
-    <position class="h2_physics" name="left_hip_pitch_joint" joint="left_hip_pitch_joint" kp="700" />
-    <position class="h2_physics" name="left_hip_roll_joint" joint="left_hip_roll_joint" kp="700" />
-    <position class="h2_physics" name="left_hip_yaw_joint" joint="left_hip_yaw_joint" kp="700" />
-    <position class="h2_physics" name="left_knee_joint" joint="left_knee_joint" kp="900" />
-    <position class="h2_physics" name="left_ankle_roll_joint" joint="left_ankle_roll_joint" kp="180" />
-    <position class="h2_physics" name="left_ankle_pitch_joint" joint="left_ankle_pitch_joint" kp="180" />
-    <position class="h2_physics" name="right_hip_pitch_joint" joint="right_hip_pitch_joint" kp="700" />
-    <position class="h2_physics" name="right_hip_roll_joint" joint="right_hip_roll_joint" kp="700" />
-    <position class="h2_physics" name="right_hip_yaw_joint" joint="right_hip_yaw_joint" kp="700" />
-    <position class="h2_physics" name="right_knee_joint" joint="right_knee_joint" kp="900" />
-    <position class="h2_physics" name="right_ankle_roll_joint" joint="right_ankle_roll_joint" kp="180" />
-    <position class="h2_physics" name="right_ankle_pitch_joint" joint="right_ankle_pitch_joint" kp="180" />
-    <position class="h2_physics" name="waist_yaw_joint" joint="waist_yaw_joint" kp="300" />
-    <position class="h2_physics" name="waist_roll_joint" joint="waist_roll_joint" kp="300" />
-    <position class="h2_physics" name="waist_pitch_joint" joint="waist_pitch_joint" kp="900" />
+    <position class="h2_physics" name="left_hip_pitch_joint" joint="left_hip_pitch_joint" kp="2100" />
+    <position class="h2_physics" name="left_hip_roll_joint" joint="left_hip_roll_joint" kp="2100" />
+    <position class="h2_physics" name="left_hip_yaw_joint" joint="left_hip_yaw_joint" kp="2100" />
+    <position class="h2_physics" name="left_knee_joint" joint="left_knee_joint" kp="2700" />
+    <position class="h2_physics" name="left_ankle_roll_joint" joint="left_ankle_roll_joint" kp="540" />
+    <position class="h2_physics" name="left_ankle_pitch_joint" joint="left_ankle_pitch_joint" kp="540" />
+    <position class="h2_physics" name="right_hip_pitch_joint" joint="right_hip_pitch_joint" kp="2100" />
+    <position class="h2_physics" name="right_hip_roll_joint" joint="right_hip_roll_joint" kp="2100" />
+    <position class="h2_physics" name="right_hip_yaw_joint" joint="right_hip_yaw_joint" kp="2100" />
+    <position class="h2_physics" name="right_knee_joint" joint="right_knee_joint" kp="2700" />
+    <position class="h2_physics" name="right_ankle_roll_joint" joint="right_ankle_roll_joint" kp="540" />
+    <position class="h2_physics" name="right_ankle_pitch_joint" joint="right_ankle_pitch_joint" kp="540" />
+    <position class="h2_physics" name="waist_yaw_joint" joint="waist_yaw_joint" kp="900" />
+    <position class="h2_physics" name="waist_roll_joint" joint="waist_roll_joint" kp="900" />
+    <position class="h2_physics" name="waist_pitch_joint" joint="waist_pitch_joint" kp="2700" />
     <position class="h2_physics" name="head_pitch_joint" joint="head_pitch_joint" kp="30" />
     <position class="h2_physics" name="head_yaw_joint" joint="head_yaw_joint" kp="30" />
     <position class="h2_physics" name="left_shoulder_pitch_joint" joint="left_shoulder_pitch_joint" kp="120" />
@@ -285,6 +285,6 @@
     <position class="h2_physics" name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint" kp="35" />
   </actuator>
   <keyframe>
-    <key name="stand" qpos="-0.0551124 0 1.05451 1 0 0 0 -0.15 0 0 0.25 0 -0.1 -0.15 0 0 0.25 0 -0.1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" ctrl="-0.15 0 0 0.25 0 -0.1 -0.15 0 0 0.25 0 -0.1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" />
+    <key name="stand" qpos="-0.0551124 0 1.06 1 0 0 0 -0.04 0 0 0.06 0 -0.02 -0.04 0 0 0.06 0 -0.02 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" ctrl="-0.04 0 0 0.06 0 -0.02 -0.04 0 0 0.06 0 -0.02 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" />
   </keyframe>
 </mujoco>
