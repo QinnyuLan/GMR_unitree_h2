@@ -8,12 +8,12 @@
     "human_scale_table": {
         "pelvis": 1.05,
         "spine3": 1.0,
-        "left_hip": 1.24,
-        "right_hip": 1.24,
-        "left_knee": 1.24,
-        "right_knee": 1.24,
-        "left_foot": 1.24,
-        "right_foot": 1.24,
+        "left_hip": 1.26,
+        "right_hip": 1.26,
+        "left_knee": 1.26,
+        "right_knee": 1.26,
+        "left_foot": 1.26,
+        "right_foot": 1.26,
         "left_shoulder": 0.82,
         "right_shoulder": 0.82,
         "left_elbow": 0.82,
@@ -73,8 +73,8 @@
         ],
         "left_sole_link": [
             "left_foot",
-            140,
-            10,
+            200,
+            0,
             [
                 0.0,
                 0.0,
@@ -121,8 +121,8 @@
         ],
         "right_sole_link": [
             "right_foot",
-            140,
-            10,
+            200,
+            0,
             [
                 0.0,
                 0.0,
@@ -315,8 +315,8 @@
         ],
         "left_sole_link": [
             "left_foot",
-            140,
-            10,
+            200,
+            0,
             [
                 0.0,
                 0.0,
@@ -363,8 +363,8 @@
         ],
         "right_sole_link": [
             "right_foot",
-            140,
-            10,
+            200,
+            0,
             [
                 0.0,
                 0.0,
