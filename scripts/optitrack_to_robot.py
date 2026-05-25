@@ -32,7 +32,7 @@ def main(args):
             tgt_robot=args.robot,
             actual_human_height=1.6,
         )
-    viewer = RobotMotionViewer(robot_type="unitree_g1")
+    viewer = RobotMotionViewer(robot_type=args.robot)
 
     while True:
         frame = client.get_frame()
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--server_ip", type=str, default="192.168.200.160")
     parser.add_argument("--client_ip", type=str, default="192.168.200.117")
     parser.add_argument("--use_multicast", type=bool, default=False)
-    parser.add_argument("--robot", type=str, default="unitree_g1")
+    parser.add_argument("--robot", type=str, choices=["unitree_g1", "unitree_h2"], default="unitree_g1")
     args = parser.parse_args()
     main(args)
     

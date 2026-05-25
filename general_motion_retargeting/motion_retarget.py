@@ -19,6 +19,7 @@ class GeneralMotionRetargeting:
         damping: float=5e-1, # change from 1e-1 to 1e-2.
         verbose: bool=True,
         use_velocity_limit: bool=False,
+        ground_clearance: float=0.0,
     ) -> None:
 
         # load the robot model
@@ -103,6 +104,7 @@ class GeneralMotionRetargeting:
         self.setup_retarget_configuration()
         
         self.ground_offset = 0.0
+        self.ground_clearance = ground_clearance
 
     def setup_retarget_configuration(self):
         self.configuration = mink.Configuration(self.model)
@@ -286,7 +288,6 @@ class GeneralMotionRetargeting:
     def offset_human_data_to_ground(self, human_data):
         """find the lowest point of the human data and offset the human data to the ground"""
         offset_human_data = {}
-        ground_offset = 0.1
         lowest_pos = np.inf
 
         for body_name in human_data.keys():
@@ -300,11 +301,14 @@ class GeneralMotionRetargeting:
         for body_name in human_data.keys():
             pos, quat = human_data[body_name]
             offset_human_data[body_name] = [pos, quat]
-            offset_human_data[body_name][0] = pos - np.array([0, 0, lowest_pos]) + np.array([0, 0, ground_offset])
+            offset_human_data[body_name][0] = pos - np.array([0, 0, lowest_pos]) + np.array([0, 0, self.ground_clearance])
         return offset_human_data
 
     def set_ground_offset(self, ground_offset):
         self.ground_offset = ground_offset
+
+    def set_ground_clearance(self, ground_clearance):
+        self.ground_clearance = ground_clearance
 
     def apply_ground_offset(self, human_data):
         for body_name in human_data.keys():
