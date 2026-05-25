@@ -20,9 +20,6 @@ class GeneralMotionRetargeting:
         verbose: bool=True,
         use_velocity_limit: bool=False,
         ground_clearance: float=0.0,
-        enable_foot_lock: bool=False,
-        foot_lock_height: float=0.08,
-        foot_unlock_height: float=0.10,
     ) -> None:
 
         # load the robot model
@@ -108,10 +105,6 @@ class GeneralMotionRetargeting:
         
         self.ground_offset = 0.0
         self.ground_clearance = ground_clearance
-        self.enable_foot_lock = enable_foot_lock
-        self.foot_lock_height = foot_lock_height
-        self.foot_unlock_height = max(foot_unlock_height, foot_lock_height)
-        self.foot_locks = {}
 
     def setup_retarget_configuration(self):
         self.configuration = mink.Configuration(self.model)
@@ -164,8 +157,6 @@ class GeneralMotionRetargeting:
         human_data = self.apply_ground_offset(human_data)
         if offset_to_ground:
             human_data = self.offset_human_data_to_ground(human_data)
-        if self.enable_foot_lock:
-            human_data = self.lock_low_feet_to_ground(human_data)
         self.scaled_human_data = human_data
 
         if self.use_ik_match_table1:
@@ -313,35 +304,11 @@ class GeneralMotionRetargeting:
             offset_human_data[body_name][0] = pos - np.array([0, 0, lowest_pos]) + np.array([0, 0, self.ground_clearance])
         return offset_human_data
 
-    def lock_low_feet_to_ground(self, human_data):
-        foot_names = [
-            body_name for body_name in human_data.keys()
-            if "Foot" in body_name or "foot" in body_name
-        ]
-        for body_name in foot_names:
-            pos, quat = human_data[body_name]
-            if pos[2] > self.foot_unlock_height:
-                self.foot_locks.pop(body_name, None)
-                continue
-
-            if pos[2] <= self.foot_lock_height or body_name in self.foot_locks:
-                if body_name not in self.foot_locks:
-                    self.foot_locks[body_name] = pos[:2].copy()
-                pos = pos.copy()
-                pos[:2] = self.foot_locks[body_name]
-                pos[2] = self.ground_clearance
-                human_data[body_name] = [pos, quat]
-
-        return human_data
-
     def set_ground_offset(self, ground_offset):
         self.ground_offset = ground_offset
 
     def set_ground_clearance(self, ground_clearance):
         self.ground_clearance = ground_clearance
-
-    def clear_foot_locks(self):
-        self.foot_locks.clear()
 
     def apply_ground_offset(self, human_data):
         for body_name in human_data.keys():
