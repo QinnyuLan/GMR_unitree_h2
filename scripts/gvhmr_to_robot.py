@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--robot",
         choices=["unitree_g1", "unitree_g1_with_hands", "unitree_h1", "unitree_h1_2",
+                 "unitree_h2",
                  "booster_t1", "booster_t1_29dof","stanford_toddy", "fourier_n1", 
                 "engineai_pm01", "kuavo_s45", "hightorque_hi", "galaxea_r1pro", "berkeley_humanoid_lite", "booster_k1",
                 "pnd_adam_lite", "openloong", "tienkung"],
@@ -37,6 +38,12 @@ if __name__ == "__main__":
         "--save_path",
         default=None,
         help="Path to save the robot motion.",
+    )
+
+    parser.add_argument(
+        "--smplx_model_path",
+        default="/media/sky/Data/SMPL/smplx",
+        help="Path to SMPL-X body models.",
     )
     
     parser.add_argument(
@@ -60,10 +67,33 @@ if __name__ == "__main__":
         help="Limit the rate of the retargeted robot motion to keep the same as the human motion.",
     )
 
+    parser.add_argument(
+        "--offset_to_ground",
+        default=False,
+        action="store_true",
+        help="Shift the human motion so the lowest foot target stays above the ground.",
+    )
+
+    parser.add_argument(
+        "--ground_clearance",
+        default=0.0,
+        type=float,
+        help="Target ground clearance in meters when --offset_to_ground is enabled.",
+    )
+
+    parser.add_argument(
+        "--hide_targets",
+        default=False,
+        action="store_true",
+        help="Hide human/IK target frames in the viewer.",
+    )
+
     args = parser.parse_args()
 
 
-    SMPLX_FOLDER = HERE / ".." / "assets" / "body_models"
+    SMPLX_FOLDER = pathlib.Path(args.smplx_model_path)
+    if not SMPLX_FOLDER.exists():
+        SMPLX_FOLDER = HERE / ".." / "assets" / "body_models"
     
     
     # Load SMPLX trajectory
@@ -82,6 +112,7 @@ if __name__ == "__main__":
         actual_human_height=actual_human_height,
         src_human="smplx",
         tgt_robot=args.robot,
+        ground_clearance=args.ground_clearance,
     )
     
     robot_motion_viewer = RobotMotionViewer(robot_type=args.robot,
@@ -127,14 +158,14 @@ if __name__ == "__main__":
         smplx_data = smplx_data_frames[i]
 
         # retarget
-        qpos = retarget.retarget(smplx_data)
+        qpos = retarget.retarget(smplx_data, offset_to_ground=args.offset_to_ground)
 
         # visualize
         robot_motion_viewer.step(
             root_pos=qpos[:3],
             root_rot=qpos[3:7],
             dof_pos=qpos[7:],
-            human_motion_data=retarget.scaled_human_data,
+            human_motion_data=None if args.hide_targets else retarget.scaled_human_data,
             # human_motion_data=smplx_data,
             human_pos_offset=np.array([0.0, 0.0, 0.0]),
             show_human_body_name=False,

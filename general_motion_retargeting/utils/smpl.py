@@ -1,5 +1,7 @@
 import numpy as np
+from pathlib import Path
 import smplx
+import tempfile
 import torch
 from scipy.spatial.transform import Rotation as R
 from smplx.joint_names import JOINT_NAMES
@@ -7,18 +9,91 @@ from scipy.interpolate import interp1d
 
 import general_motion_retargeting.utils.lafan_vendor.utils as utils
 
+
+def _as_gender(value):
+    if isinstance(value, np.ndarray):
+        value = value.item()
+    if isinstance(value, bytes):
+        value = value.decode("utf-8")
+    return str(value).lower()
+
+
+def _resolve_smplx_model_file(smplx_body_model_path, gender):
+    model_path = Path(smplx_body_model_path).expanduser()
+    gender = _as_gender(gender)
+    ext_order = ("npz", "pkl")
+
+    if model_path.is_file():
+        return model_path, model_path.suffix.lstrip(".")
+
+    candidates = []
+    for ext in ext_order:
+        candidates.extend(
+            [
+                model_path / f"SMPLX_{gender.upper()}.{ext}",
+                model_path / "smplx" / f"SMPLX_{gender.upper()}.{ext}",
+                model_path / gender / f"model.{ext}",
+                model_path / "smplx" / gender / f"model.{ext}",
+            ]
+        )
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate, candidate.suffix.lstrip(".")
+
+    searched = "\n".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(
+        f"Could not find SMPL-X model for gender '{gender}' under {model_path}. "
+        f"Searched:\n{searched}"
+    )
+
+
+def _ensure_smplx_model_compatibility(model_file):
+    if model_file.suffix != ".npz":
+        return model_file
+
+    model_data = dict(np.load(model_file, allow_pickle=True))
+    extra_fields = {
+        "hands_componentsl": np.zeros((45, 45), dtype=np.float32),
+        "hands_componentsr": np.zeros((45, 45), dtype=np.float32),
+        "hands_meanl": np.zeros(45, dtype=np.float32),
+        "hands_meanr": np.zeros(45, dtype=np.float32),
+        "lmk_faces_idx": np.zeros(0, dtype=np.int64),
+        "lmk_bary_coords": np.zeros((0, 3), dtype=np.float32),
+    }
+    missing_fields = [key for key in extra_fields if key not in model_data]
+    if not missing_fields:
+        return model_file
+
+    for key in missing_fields:
+        model_data[key] = extra_fields[key]
+
+    cache_dir = Path(tempfile.gettempdir()) / "gmr_smplx_model_cache"
+    cache_dir.mkdir(exist_ok=True)
+    cache_file = cache_dir / f"{model_file.parent.name}_{model_file.stem}_patched.npz"
+    if not cache_file.exists():
+        np.savez(cache_file, **model_data)
+    return cache_file
+
+
+def _create_smplx_body_model(smplx_body_model_path, gender):
+    model_file, ext = _resolve_smplx_model_file(smplx_body_model_path, gender)
+    model_file = _ensure_smplx_model_compatibility(model_file)
+    return smplx.SMPLX(
+        str(model_file),
+        gender=_as_gender(gender),
+        use_pca=False,
+        ext=ext,
+    )
+
+
 def load_smpl_file(smpl_file):
     smpl_data = np.load(smpl_file, allow_pickle=True)
     return smpl_data
 
 def load_smplx_file(smplx_file, smplx_body_model_path):
     smplx_data = np.load(smplx_file, allow_pickle=True)
-    body_model = smplx.create(
-        smplx_body_model_path,
-        "smplx",
-        gender=str(smplx_data["gender"]),
-        use_pca=False,
-    )
+    body_model = _create_smplx_body_model(smplx_body_model_path, smplx_data["gender"])
     # print(smplx_data["pose_body"].shape)
     # print(smplx_data["betas"].shape)
     # print(smplx_data["root_orient"].shape)
@@ -72,12 +147,7 @@ def load_gvhmr_pred_file(gvhmr_pred_file, smplx_body_model_path):
         "mocap_frame_rate": torch.tensor(30),
     }
 
-    body_model = smplx.create(
-        smplx_body_model_path,
-        "smplx",
-        gender="neutral",
-        use_pca=False,
-    )
+    body_model = _create_smplx_body_model(smplx_body_model_path, "neutral")
     
     num_frames = smpl_params_global['body_pose'].shape[0]
     smplx_output = body_model(

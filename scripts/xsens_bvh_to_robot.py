@@ -27,6 +27,7 @@ if __name__ == "__main__":
         choices=[
             "unitree_g1",
             "unitree_h1_2",
+            "unitree_h2",
             "Q1",
             "X1",
         ],

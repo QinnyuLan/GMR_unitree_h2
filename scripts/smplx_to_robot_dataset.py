@@ -171,6 +171,11 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot", default="unitree_g1")
+    parser.add_argument(
+        "--smplx_model_path",
+        default="/media/sky/Data/SMPL/smplx",
+        help="Path to SMPL-X body models.",
+    )
     parser.add_argument("--src_folder", type=str,
                         required=True,
                         )
@@ -189,7 +194,9 @@ def main():
     src_folder = args.src_folder
     tgt_folder = args.tgt_folder
 
-    SMPLX_FOLDER = HERE / ".." / "assets" / "body_models"
+    SMPLX_FOLDER = pathlib.Path(args.smplx_model_path)
+    if not SMPLX_FOLDER.exists():
+        SMPLX_FOLDER = HERE / ".." / "assets" / "body_models"
     hard_motions_folder = HERE / ".." / "assets" / "hard_motions"
 
     verbose = False
