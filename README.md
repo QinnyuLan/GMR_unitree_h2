@@ -290,8 +290,8 @@ Retarget a single motion:
 python scripts/smplx_to_robot.py --smplx_file <path_to_smplx_data> --robot <path_to_robot_data> --save_path <path_to_save_robot_data.pkl> --rate_limit
 ```
 
-By default you should see the visualization of the retargeted robot motion in a mujoco window.
-If you want to record video, add `--record_video` and `--video_path <your_video_path,mp4>`.
+By default you should see the visualization of the retargeted robot motion in a MuJoCo window.
+If you want to export video, add `--record_video` and `--video_path <your_video_path.mp4>`. Video export uses MuJoCo offscreen rendering by default, so it also works on headless machines. Use `--viewer gl` to force the interactive MuJoCo viewer.
 
 - `--rate_limit` is used to limit the rate of the retargeted robot motion to keep the same as the human motion. If you want it as fast as possible, remove `--rate_limit`.
 
@@ -302,6 +302,15 @@ python scripts/smplx_to_robot_dataset.py --src_folder <path_to_dir_of_smplx_data
 ```
 
 By default there is no visualization for batch retargeting.
+
+You can also use the config-driven visualizer:
+
+```bash
+python scripts/gmr_visualize.py --config assets/unitree_h2/h2_smplx_visualize_config.json --viewer gl
+python scripts/gmr_visualize.py --config assets/unitree_h2/h2_smplx_visualize_config.json --viewer auto
+```
+
+Update the `motion` and `smplx_model_path` fields in the config first. `--viewer auto` exports an MP4 by default; `--viewer gl` opens the interactive MuJoCo viewer. Add `--no-record_video` for viewer-only playback.
 
 ### Retargeting from GVHMR to Robot
 
@@ -333,7 +342,7 @@ Retarget a single motion:
 python scripts/bvh_to_robot.py --bvh_file <path_to_bvh_data> --robot <path_to_robot_data> --save_path <path_to_save_robot_data.pkl> --rate_limit --format <format>
 ```
 
-By default you should see the visualization of the retargeted robot motion in a mujoco window. 
+By default you should see the visualization of the retargeted robot motion in a MuJoCo window. Add `--record_video` to export MP4 with the default offscreen renderer, or pass `--viewer gl` to force the interactive viewer.
 - `--rate_limit` is used to limit the rate of the retargeted robot motion to keep the same as the human motion. If you want it as fast as possible, remove `--rate_limit`.
 - `--format` is used to specify the format of the BVH data. Supported formats are `lafan1` and `nokov`.
 
@@ -534,7 +543,7 @@ Visualize a single motions:
 python scripts/vis_robot_motion.py --robot <robot_name> --robot_motion_path <path_to_save_robot_data.pkl>
 ```
 
-If you want to record video, add `--record_video` and `--video_path <your_video_path,mp4>`.
+If you want to export video, add `--record_video` and `--video_path <your_video_path.mp4>`. Video export uses the default offscreen renderer unless you pass `--viewer gl`.
 
 Visualize a folder of motions:
 

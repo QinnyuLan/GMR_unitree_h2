@@ -91,8 +91,26 @@ def load_smpl_file(smpl_file):
     smpl_data = np.load(smpl_file, allow_pickle=True)
     return smpl_data
 
+
+def _normalize_smplx_motion_data(smplx_data):
+    data_fields = set(smplx_data.files)
+    if {"pose_body", "root_orient", "mocap_frame_rate"}.issubset(data_fields):
+        return smplx_data
+
+    if "poses" not in data_fields:
+        return smplx_data
+
+    poses = smplx_data["poses"]
+    normalized_data = {key: smplx_data[key] for key in smplx_data.files}
+    normalized_data["root_orient"] = poses[:, :3]
+    normalized_data["pose_body"] = poses[:, 3:66]
+    if "mocap_frame_rate" not in normalized_data and "mocap_framerate" in normalized_data:
+        normalized_data["mocap_frame_rate"] = np.asarray(normalized_data["mocap_framerate"])
+    return normalized_data
+
+
 def load_smplx_file(smplx_file, smplx_body_model_path):
-    smplx_data = np.load(smplx_file, allow_pickle=True)
+    smplx_data = _normalize_smplx_motion_data(np.load(smplx_file, allow_pickle=True))
     body_model = _create_smplx_body_model(smplx_body_model_path, smplx_data["gender"])
     # print(smplx_data["pose_body"].shape)
     # print(smplx_data["betas"].shape)
