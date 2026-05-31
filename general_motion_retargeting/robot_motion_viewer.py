@@ -1,5 +1,9 @@
 import os
 import time
+
+if "DISPLAY" not in os.environ:
+    os.environ.setdefault("MUJOCO_GL", "egl")
+
 import mujoco as mj
 import mujoco.viewer as mjv
 import imageio
@@ -48,6 +52,9 @@ class RobotMotionViewer:
                 camera_follow=True,
                 motion_fps=30,
                 transparent_robot=0,
+                camera_azimuth=None,
+                camera_elevation=-10,
+                camera_distance=None,
                 # video recording
                 record_video=False,
                 video_path=None,
@@ -67,6 +74,9 @@ class RobotMotionViewer:
         self.motion_fps = motion_fps
         self.rate_limiter = RateLimiter(frequency=self.motion_fps, warn=False)
         self.camera_follow = camera_follow
+        self.camera_azimuth = camera_azimuth
+        self.camera_elevation = camera_elevation
+        self.camera_distance = camera_distance or self.viewer_cam_distance
         self.record_video = record_video
 
 
@@ -123,11 +133,12 @@ class RobotMotionViewer:
         
         mj.mj_forward(self.model, self.data)
         
-        if follow_camera:
+        if self.camera_follow and follow_camera:
             self.viewer.cam.lookat = self.data.xpos[self.model.body(self.robot_base).id]
-            self.viewer.cam.distance = self.viewer_cam_distance
-            self.viewer.cam.elevation = -10  # 正面视角，轻微向下看
-            # self.viewer.cam.azimuth = 180    # 正面朝向机器人
+            self.viewer.cam.distance = self.camera_distance
+            self.viewer.cam.elevation = self.camera_elevation
+            if self.camera_azimuth is not None:
+                self.viewer.cam.azimuth = self.camera_azimuth
         
         if human_motion_data is not None:
             # Clean custom geometry
@@ -159,3 +170,179 @@ class RobotMotionViewer:
         if self.record_video:
             self.mp4_writer.close()
             print(f"Video saved to {self.video_path}")
+
+
+class RobotMotionRenderer:
+    """Offscreen MuJoCo MP4 renderer for robot qpos trajectories.
+
+    This is the default backend for script-level video export. It avoids opening
+    a passive viewer and uses a camera that follows the robot base, which makes
+    exported walking/running clips easier to compare across tuning variants.
+    """
+
+    def __init__(
+        self,
+        robot_type,
+        motion_fps=30,
+        video_path=None,
+        video_width=960,
+        video_height=544,
+        transparent_robot=0,
+        camera_follow=True,
+        camera_azimuth=135.0,
+        camera_elevation=-12.0,
+        camera_distance=None,
+        keyboard_callback=None,
+    ):
+        del keyboard_callback
+        os.environ.setdefault("MUJOCO_GL", "egl")
+
+        if video_path is None:
+            raise ValueError("Please provide video_path for offscreen rendering")
+
+        self.robot_type = robot_type
+        self.xml_path = ROBOT_XML_DICT[robot_type]
+        self.model = mj.MjModel.from_xml_path(str(self.xml_path))
+        self.model.vis.global_.offwidth = video_width
+        self.model.vis.global_.offheight = video_height
+        self.data = mj.MjData(self.model)
+        self.robot_base = ROBOT_BASE_DICT[robot_type]
+        self.robot_base_id = self.model.body(self.robot_base).id
+        self.viewer_cam_distance = VIEWER_CAM_DISTANCE_DICT[robot_type]
+        self.motion_fps = motion_fps
+        self.camera_follow = camera_follow
+        self.camera_distance = camera_distance or self.viewer_cam_distance
+        self.video_path = video_path
+
+        video_dir = os.path.dirname(self.video_path)
+        if video_dir and not os.path.exists(video_dir):
+            os.makedirs(video_dir)
+
+        self.renderer = mj.Renderer(self.model, height=video_height, width=video_width)
+        self.camera = mj.MjvCamera()
+        mj.mjv_defaultCamera(self.camera)
+        self.camera.azimuth = camera_azimuth
+        self.camera.elevation = camera_elevation
+        self.camera.distance = self.camera_distance
+
+        self.scene_option = mj.MjvOption()
+        mj.mjv_defaultOption(self.scene_option)
+        self.scene_option.flags[mj.mjtVisFlag.mjVIS_TRANSPARENT] = transparent_robot
+
+        self.mp4_writer = imageio.get_writer(self.video_path, fps=int(round(self.motion_fps)))
+        print(f"Rendering video to {self.video_path}")
+
+    def step(
+        self,
+        root_pos,
+        root_rot,
+        dof_pos,
+        human_motion_data=None,
+        show_human_body_name=False,
+        human_point_scale=0.1,
+        human_pos_offset=np.array([0.0, 0.0, 0]),
+        rate_limit=True,
+        follow_camera=True,
+    ):
+        del human_motion_data, show_human_body_name, human_point_scale, human_pos_offset, rate_limit
+
+        self.data.qpos[:3] = root_pos
+        self.data.qpos[3:7] = root_rot
+        self.data.qpos[7:] = dof_pos
+        mj.mj_forward(self.model, self.data)
+
+        if self.camera_follow and follow_camera:
+            self.camera.lookat[:] = self.data.xpos[self.robot_base_id]
+            self.camera.distance = self.camera_distance
+
+        self.renderer.update_scene(self.data, camera=self.camera, scene_option=self.scene_option)
+        self.mp4_writer.append_data(self.renderer.render())
+
+    def close(self):
+        self.mp4_writer.close()
+        self.renderer.close()
+        print(f"Video saved to {self.video_path}")
+
+
+class NullRobotMotionViewer:
+    """No-op visualization backend used for save-only conversion."""
+
+    def __init__(self, motion_fps=30, **kwargs):
+        del kwargs
+        self.rate_limiter = RateLimiter(frequency=motion_fps, warn=False)
+
+    def step(
+        self,
+        root_pos,
+        root_rot,
+        dof_pos,
+        human_motion_data=None,
+        show_human_body_name=False,
+        human_point_scale=0.1,
+        human_pos_offset=np.array([0.0, 0.0, 0]),
+        rate_limit=True,
+        follow_camera=True,
+    ):
+        del root_pos, root_rot, dof_pos, human_motion_data, show_human_body_name
+        del human_point_scale, human_pos_offset, follow_camera
+        if rate_limit:
+            self.rate_limiter.sleep()
+
+    def close(self):
+        pass
+
+
+def create_robot_motion_visualizer(
+    robot_type,
+    viewer="auto",
+    motion_fps=30,
+    transparent_robot=0,
+    record_video=False,
+    video_path=None,
+    video_width=960,
+    video_height=544,
+    camera_follow=True,
+    camera_azimuth=135.0,
+    camera_elevation=-12.0,
+    camera_distance=None,
+    keyboard_callback=None,
+):
+    if viewer not in {"auto", "gl", "offscreen", "none"}:
+        raise ValueError(f"Unknown viewer backend: {viewer}")
+
+    backend = "offscreen" if viewer == "auto" and record_video else viewer
+    if backend == "auto":
+        backend = "gl"
+
+    if backend == "gl":
+        return RobotMotionViewer(
+            robot_type=robot_type,
+            motion_fps=motion_fps,
+            transparent_robot=transparent_robot,
+            camera_azimuth=camera_azimuth,
+            camera_elevation=camera_elevation,
+            camera_distance=camera_distance,
+            record_video=record_video,
+            video_path=video_path,
+            video_width=video_width,
+            video_height=video_height,
+            camera_follow=camera_follow,
+            keyboard_callback=keyboard_callback,
+        )
+
+    if backend == "offscreen":
+        return RobotMotionRenderer(
+            robot_type=robot_type,
+            motion_fps=motion_fps,
+            transparent_robot=transparent_robot,
+            video_path=video_path,
+            video_width=video_width,
+            video_height=video_height,
+            camera_follow=camera_follow,
+            camera_azimuth=camera_azimuth,
+            camera_elevation=camera_elevation,
+            camera_distance=camera_distance,
+            keyboard_callback=keyboard_callback,
+        )
+
+    return NullRobotMotionViewer(motion_fps=motion_fps)

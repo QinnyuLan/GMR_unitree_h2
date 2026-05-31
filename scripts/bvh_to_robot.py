@@ -2,7 +2,7 @@ import argparse
 import pathlib
 import time
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
-from general_motion_retargeting import RobotMotionViewer
+from general_motion_retargeting import create_robot_motion_visualizer
 from general_motion_retargeting.utils.lafan1 import load_bvh_file
 from rich import print
 from tqdm import tqdm
@@ -45,6 +45,7 @@ if __name__ == "__main__":
         "--record_video",
         action="store_true",
         default=False,
+        help="Export an MP4 video. With --viewer auto, this uses offscreen rendering.",
     )
 
     parser.add_argument(
@@ -52,6 +53,19 @@ if __name__ == "__main__":
         type=str,
         default="videos/example.mp4",
     )
+
+    parser.add_argument(
+        "--viewer",
+        choices=["auto", "gl", "offscreen", "none"],
+        default="auto",
+        help="Visualization backend. auto uses offscreen for --record_video, otherwise gl.",
+    )
+
+    parser.add_argument("--video_width", type=int, default=960)
+    parser.add_argument("--video_height", type=int, default=544)
+    parser.add_argument("--camera_azimuth", type=float, default=135.0)
+    parser.add_argument("--camera_elevation", type=float, default=-12.0)
+    parser.add_argument("--camera_distance", type=float, default=None)
 
     parser.add_argument(
         "--rate_limit",
@@ -93,14 +107,19 @@ if __name__ == "__main__":
 
     motion_fps = args.motion_fps
     
-    robot_motion_viewer = RobotMotionViewer(robot_type=args.robot,
-                                            motion_fps=motion_fps,
-                                            transparent_robot=0,
-                                            record_video=args.record_video,
-                                            video_path=args.video_path,
-                                            # video_width=2080,
-                                            # video_height=1170
-                                            )
+    robot_motion_viewer = create_robot_motion_visualizer(
+        robot_type=args.robot,
+        viewer=args.viewer,
+        motion_fps=motion_fps,
+        transparent_robot=0,
+        record_video=args.record_video,
+        video_path=args.video_path,
+        video_width=args.video_width,
+        video_height=args.video_height,
+        camera_azimuth=args.camera_azimuth,
+        camera_elevation=args.camera_elevation,
+        camera_distance=args.camera_distance,
+    )
     
     # FPS measurement variables
     fps_counter = 0
