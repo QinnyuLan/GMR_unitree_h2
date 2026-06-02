@@ -12,6 +12,7 @@ from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from general_motion_retargeting import create_robot_motion_visualizer
 from general_motion_retargeting.utils.lafan1 import load_bvh_file
 from general_motion_retargeting.utils.smpl import (
+    estimate_smplx_ground_offset,
     get_gvhmr_data_offline_fast,
     get_smplx_data_offline_fast,
     load_gvhmr_pred_file,
@@ -94,6 +95,9 @@ def _apply_config(args, config):
         "ground_clearance": ["ground_clearance"],
         "offset_to_ground": ["offset_to_ground"],
         "hide_targets": ["hide_targets"],
+        "compare_human": ["compare_human"],
+        "robot_pos_offset": ["robot_pos_offset"],
+        "human_pos_offset": ["human_pos_offset"],
         "rate_limit": ["rate_limit"],
         "video_width": ["video_width"],
         "video_height": ["video_height"],
@@ -132,12 +136,32 @@ parser.add_argument(
 )
 parser.add_argument("--output", type=str, default=None, help="Output MP4 path.")
 parser.add_argument("--save_path", type=str, default=None, help="Optional output robot motion pkl.")
-parser.add_argument("--smplx_model_path", type=str, default="/media/sky/Data/SMPL/smplx")
+parser.add_argument("--smplx_model_path", type=str, default="/mnt/data/SMPL-series/smplx")
 parser.add_argument("--fps", type=int, default=30)
 parser.add_argument("--rate_limit", action="store_true", default=False)
 parser.add_argument("--offset_to_ground", action="store_true", default=False)
 parser.add_argument("--ground_clearance", type=float, default=0.0)
 parser.add_argument("--hide_targets", action="store_true", default=False)
+parser.add_argument(
+    "--compare_human",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help="Show the source human skeleton side-by-side with the robot in video export.",
+)
+parser.add_argument(
+    "--robot_pos_offset",
+    type=float,
+    nargs=3,
+    default=[0.0, -0.55, 0.0],
+    help="XYZ visual offset applied to the robot when --compare_human is enabled.",
+)
+parser.add_argument(
+    "--human_pos_offset",
+    type=float,
+    nargs=3,
+    default=[0.0, 0.55, 0.0],
+    help="XYZ visual offset applied to the source human skeleton.",
+)
 parser.add_argument("--video_width", type=int, default=960)
 parser.add_argument("--video_height", type=int, default=544)
 parser.add_argument("--camera_azimuth", type=float, default=135.0)
@@ -167,6 +191,14 @@ if __name__ == "__main__":
         tgt_robot=args.robot,
         ground_clearance=args.ground_clearance,
     )
+    if args.offset_to_ground:
+        retargeter.set_ground_offset(
+            estimate_smplx_ground_offset(
+                frames,
+                retargeter,
+                args.ground_clearance,
+            )
+        )
     viewer = create_robot_motion_visualizer(
         robot_type=args.robot,
         viewer=args.viewer,
@@ -179,16 +211,19 @@ if __name__ == "__main__":
         camera_azimuth=args.camera_azimuth,
         camera_elevation=args.camera_elevation,
         camera_distance=args.camera_distance,
+        compare_human=args.compare_human,
+        robot_pos_offset=np.array(args.robot_pos_offset),
+        human_pos_offset=np.array(args.human_pos_offset),
     )
 
     qpos_list = []
     for frame in tqdm(frames, desc="Retargeting"):
-        qpos = retargeter.retarget(frame, offset_to_ground=args.offset_to_ground)
+        qpos = retargeter.retarget(frame, offset_to_ground=False)
         viewer.step(
             root_pos=qpos[:3],
             root_rot=qpos[3:7],
             dof_pos=qpos[7:],
-            human_motion_data=None if args.hide_targets else retargeter.scaled_human_data,
+            human_motion_data=None if args.hide_targets else frame,
             rate_limit=args.rate_limit,
         )
         if args.save_path is not None:

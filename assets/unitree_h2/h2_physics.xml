@@ -86,11 +86,17 @@
                   <joint name="left_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.13446 0.610865" actuatorfrcrange="-66.88 66.88" class="h2_physics" damping="1.0" armature="0.01" frictionloss="0.05" />
                   <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.4 0.4 0.4 1" mesh="left_ankle_pitch_link" />
                   <geom type="mesh" rgba="0.4 0.4 0.4 1" mesh="left_ankle_pitch_link" contype="0" conaffinity="0" group="2" density="0" />
-                  <body name="left_sole_link" pos="0.006 0 -0.055" />
-                  <geom class="foot_contact" name="left_foot_contact_heel_inner" pos="-0.065 0.012 -0.0543" />
-                  <geom class="foot_contact" name="left_foot_contact_heel_outer" pos="-0.065 0.068 -0.0543" />
-                  <geom class="foot_contact" name="left_foot_contact_toe_inner" pos="0.145 0.012 -0.0543" />
-                  <geom class="foot_contact" name="left_foot_contact_toe_outer" pos="0.145 0.068 -0.0543" />
+                  <body name="left_sole_link" pos="0.0415 0.0351 -0.0543" />
+                  <body name="left_toe_link" pos="0.153 0.0276 -0.053831" />
+                  <body name="left_heel_link" pos="-0.07 0.0426 -0.0543" />
+                  <body name="left_toe_inner_link" pos="0.1472 0.0144 -0.053831" />
+                  <body name="left_toe_outer_link" pos="0.1436 0.0636 -0.053831" />
+                  <body name="left_heel_inner_link" pos="-0.067 0.0109 -0.053831" />
+                  <body name="left_heel_outer_link" pos="-0.0657 0.0651 -0.053832" />
+                  <geom class="foot_contact" name="left_foot_contact_heel_inner" pos="-0.067 0.0109 -0.053831" />
+                  <geom class="foot_contact" name="left_foot_contact_heel_outer" pos="-0.0657 0.0651 -0.053832" />
+                  <geom class="foot_contact" name="left_foot_contact_toe_inner" pos="0.1472 0.0144 -0.053831" />
+                  <geom class="foot_contact" name="left_foot_contact_toe_outer" pos="0.1436 0.0636 -0.053831" />
                   <geom name="left_sole_collision" type="box" size="0.180 0.070 0.012" pos="0.040 0.040 -0.0603" group="3" mass="0" density="0" priority="1" friction="1.2 0.1 0.1" condim="3" rgba="0 0 0 0" />
                 </body>
               </body>
@@ -126,11 +132,17 @@
                   <joint name="right_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.13446 0.610865" actuatorfrcrange="-66.88 66.88" class="h2_physics" damping="1.0" armature="0.01" frictionloss="0.05" />
                   <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.4 0.4 0.4 1" mesh="right_ankle_pitch_link" />
                   <geom type="mesh" rgba="0.4 0.4 0.4 1" mesh="right_ankle_pitch_link" contype="0" conaffinity="0" group="2" density="0" />
-                  <body name="right_sole_link" pos="0.006 0 -0.055" />
-                  <geom class="foot_contact" name="right_foot_contact_heel_inner" pos="-0.065 -0.012 -0.0543" />
-                  <geom class="foot_contact" name="right_foot_contact_heel_outer" pos="-0.065 -0.068 -0.0543" />
-                  <geom class="foot_contact" name="right_foot_contact_toe_inner" pos="0.145 -0.012 -0.0543" />
-                  <geom class="foot_contact" name="right_foot_contact_toe_outer" pos="0.145 -0.068 -0.0543" />
+                  <body name="right_sole_link" pos="0.0415 -0.0351 -0.0543" />
+                  <body name="right_toe_link" pos="0.153 -0.0276 -0.053831" />
+                  <body name="right_heel_link" pos="-0.07 -0.0426 -0.0543" />
+                  <body name="right_toe_inner_link" pos="0.1472 -0.0144 -0.053831" />
+                  <body name="right_toe_outer_link" pos="0.1436 -0.0636 -0.053831" />
+                  <body name="right_heel_inner_link" pos="-0.067 -0.0109 -0.053831" />
+                  <body name="right_heel_outer_link" pos="-0.0657 -0.0651 -0.053832" />
+                  <geom class="foot_contact" name="right_foot_contact_heel_inner" pos="-0.067 -0.0109 -0.053831" />
+                  <geom class="foot_contact" name="right_foot_contact_heel_outer" pos="-0.0657 -0.0651 -0.053832" />
+                  <geom class="foot_contact" name="right_foot_contact_toe_inner" pos="0.1472 -0.0144 -0.053831" />
+                  <geom class="foot_contact" name="right_foot_contact_toe_outer" pos="0.1436 -0.0636 -0.053831" />
                   <geom name="right_sole_collision" type="box" size="0.180 0.070 0.012" pos="0.040 -0.040 -0.0603" group="3" mass="0" density="0" priority="1" friction="1.2 0.1 0.1" condim="3" rgba="0 0 0 0" />
                 </body>
               </body>
@@ -285,6 +297,6 @@
     <position class="h2_physics" name="right_wrist_yaw_joint" joint="right_wrist_yaw_joint" kp="35" />
   </actuator>
   <keyframe>
-    <key name="stand" qpos="-0.0551124 0 1.06 1 0 0 0 -0.04 0 0 0.06 0 -0.02 -0.04 0 0 0.06 0 -0.02 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" ctrl="-0.04 0 0 0.06 0 -0.02 -0.04 0 0 0.06 0 -0.02 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" />
+    <key name="stand" qpos="-0.05851736 0 1.0582086 1 0 0 0 -0.06 0 0 0.1 0 -0.04 -0.06 0 0 0.1 0 -0.04 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" ctrl="-0.06 0 0 0.1 0 -0.04 -0.06 0 0 0.1 0 -0.04 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" />
   </keyframe>
 </mujoco>

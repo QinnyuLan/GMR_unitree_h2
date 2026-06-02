@@ -303,6 +303,25 @@ python scripts/smplx_to_robot_dataset.py --src_folder <path_to_dir_of_smplx_data
 
 By default there is no visualization for batch retargeting.
 
+Example: batch retarget a large SMPL-X dataset to Unitree H2 with `uv` and 8 CPU workers:
+
+```bash
+mkdir -p /mnt/data/seed/h2_gmr_20260601/_logs
+
+uv run python scripts/smplx_to_robot_dataset.py \
+  --robot unitree_h2 \
+  --src_folder /mnt/data/seed/smpl-x \
+  --tgt_folder /mnt/data/seed/h2_gmr_20260601 \
+  --smplx_model_path /mnt/data/SMPL-series/smplx \
+  --num_cpus 8 \
+  --device cpu \
+  --memory_threshold_gb 8 \
+  --offset_to_ground \
+  2>&1 | tee /mnt/data/seed/h2_gmr_20260601/_logs/smplx_to_h2_$(date +%Y%m%d_%H%M%S).log
+```
+
+The dataset script skips existing output files unless `--override` is passed, so the same command can be re-run to resume after an interruption. The output is a mirrored directory of GMR `.pkl` files containing `root_pos`, `root_rot`, `dof_pos`, `local_body_pos`, and `link_body_list`.
+
 You can also use the config-driven visualizer:
 
 ```bash

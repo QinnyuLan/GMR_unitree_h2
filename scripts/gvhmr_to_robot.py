@@ -7,7 +7,11 @@ import numpy as np
 
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from general_motion_retargeting import create_robot_motion_visualizer
-from general_motion_retargeting.utils.smpl import load_gvhmr_pred_file, get_gvhmr_data_offline_fast
+from general_motion_retargeting.utils.smpl import (
+    estimate_smplx_ground_offset,
+    load_gvhmr_pred_file,
+    get_gvhmr_data_offline_fast,
+)
 
 from rich import print
 
@@ -42,7 +46,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--smplx_model_path",
-        default="/media/sky/Data/SMPL/smplx",
+        default="/mnt/data/SMPL-series/smplx",
         help="Path to SMPL-X body models.",
     )
     
@@ -128,6 +132,14 @@ if __name__ == "__main__":
         tgt_robot=args.robot,
         ground_clearance=args.ground_clearance,
     )
+    if args.offset_to_ground:
+        retarget.set_ground_offset(
+            estimate_smplx_ground_offset(
+                smplx_data_frames,
+                retarget,
+                args.ground_clearance,
+            )
+        )
     
     default_video_path = f"videos/{args.robot}_{pathlib.Path(args.gvhmr_pred_file).stem}.mp4"
     robot_motion_viewer = create_robot_motion_visualizer(
@@ -181,7 +193,7 @@ if __name__ == "__main__":
         smplx_data = smplx_data_frames[i]
 
         # retarget
-        qpos = retarget.retarget(smplx_data, offset_to_ground=args.offset_to_ground)
+        qpos = retarget.retarget(smplx_data, offset_to_ground=False)
 
         # visualize
         robot_motion_viewer.step(

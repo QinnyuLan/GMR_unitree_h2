@@ -7,7 +7,11 @@ import numpy as np
 
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from general_motion_retargeting import create_robot_motion_visualizer
-from general_motion_retargeting.utils.smpl import load_smplx_file, get_smplx_data_offline_fast
+from general_motion_retargeting.utils.smpl import (
+    estimate_smplx_ground_offset,
+    load_smplx_file,
+    get_smplx_data_offline_fast,
+)
 
 from rich import print
 
@@ -46,7 +50,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--smplx_model_path",
-        default="/media/sky/Data/SMPL/smplx",
+        default="/mnt/data/SMPL-series/smplx",
         help="Path to SMPL-X body models.",
     )
     
@@ -139,6 +143,26 @@ if __name__ == "__main__":
         action="store_true",
         help="Hide human/IK target frames in the viewer.",
     )
+    parser.add_argument(
+        "--compare_human",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show the source human skeleton side-by-side with the robot in video export.",
+    )
+    parser.add_argument(
+        "--robot_pos_offset",
+        type=float,
+        nargs=3,
+        default=[0.0, -0.55, 0.0],
+        help="XYZ visual offset applied to the robot when --compare_human is enabled.",
+    )
+    parser.add_argument(
+        "--human_pos_offset",
+        type=float,
+        nargs=3,
+        default=[0.0, 0.55, 0.0],
+        help="XYZ visual offset applied to the source human skeleton.",
+    )
 
     args = parser.parse_args()
 
@@ -165,6 +189,14 @@ if __name__ == "__main__":
         tgt_robot=args.robot,
         ground_clearance=args.ground_clearance,
     )
+    if args.offset_to_ground:
+        retarget.set_ground_offset(
+            estimate_smplx_ground_offset(
+                smplx_data_frames,
+                retarget,
+                args.ground_clearance,
+            )
+        )
     
     default_video_path = f"videos/{args.robot}_{pathlib.Path(args.smplx_file).stem}.mp4"
     robot_motion_viewer = create_robot_motion_visualizer(
@@ -179,6 +211,9 @@ if __name__ == "__main__":
         camera_azimuth=args.camera_azimuth,
         camera_elevation=args.camera_elevation,
         camera_distance=args.camera_distance,
+        compare_human=args.compare_human,
+        robot_pos_offset=np.array(args.robot_pos_offset),
+        human_pos_offset=np.array(args.human_pos_offset),
     )
     
 
@@ -218,15 +253,14 @@ if __name__ == "__main__":
         smplx_data = smplx_data_frames[i]
 
         # retarget
-        qpos = retarget.retarget(smplx_data, offset_to_ground=args.offset_to_ground)
+        qpos = retarget.retarget(smplx_data, offset_to_ground=False)
 
         # visualize
         robot_motion_viewer.step(
             root_pos=qpos[:3],
             root_rot=qpos[3:7],
             dof_pos=qpos[7:],
-            human_motion_data=None if args.hide_targets else retarget.scaled_human_data,
-            # human_motion_data=smplx_data,
+            human_motion_data=None if args.hide_targets else smplx_data,
             human_pos_offset=np.array([0.0, 0.0, 0.0]),
             show_human_body_name=False,
             rate_limit=args.rate_limit,

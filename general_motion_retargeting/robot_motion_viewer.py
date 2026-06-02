@@ -14,6 +14,35 @@ import numpy as np
 from rich import print
 
 
+HUMAN_SKELETON_CHAINS = (
+    ("pelvis", "left_hip", "left_knee", "left_ankle", "left_foot"),
+    ("pelvis", "right_hip", "right_knee", "right_ankle", "right_foot"),
+    ("pelvis", "spine1", "spine2", "spine3", "neck", "head"),
+    ("spine3", "left_collar", "left_shoulder", "left_elbow", "left_wrist"),
+    ("spine3", "right_collar", "right_shoulder", "right_elbow", "right_wrist"),
+)
+
+
+def _scene_geom(scene):
+    if scene.ngeom >= scene.maxgeom:
+        return None
+    geom = scene.geoms[scene.ngeom]
+    scene.ngeom += 1
+    return geom
+
+
+def _iter_human_skeleton_edges(positions):
+    seen = set()
+    for chain in HUMAN_SKELETON_CHAINS:
+        available = [name for name in chain if name in positions]
+        for start_name, end_name in zip(available[:-1], available[1:]):
+            edge = (start_name, end_name)
+            if edge in seen:
+                continue
+            seen.add(edge)
+            yield edge
+
+
 def draw_frame(
     pos,
     mat,
@@ -45,6 +74,60 @@ def draw_frame(
             to=pos + pos_offset + size * (mat @ fix)[:, i],
         )
         v.user_scn.ngeom += 1
+
+
+def draw_human_skeleton(
+    scene,
+    human_motion_data,
+    pos_offset=np.array([0.0, 0.0, 0.0]),
+    joint_radius=0.025,
+    bone_width=0.018,
+    joint_rgba=(0.98, 0.86, 0.16, 1.0),
+    bone_rgba=(0.98, 0.86, 0.16, 1.0),
+    show_body_name=False,
+):
+    if human_motion_data is None:
+        return
+
+    positions = {
+        body_name: np.asarray(body_data[0], dtype=float) + pos_offset
+        for body_name, body_data in human_motion_data.items()
+    }
+
+    for start_name, end_name in _iter_human_skeleton_edges(positions):
+        geom = _scene_geom(scene)
+        if geom is None:
+            return
+        mj.mjv_initGeom(
+            geom,
+            type=mj.mjtGeom.mjGEOM_CAPSULE,
+            size=[bone_width, 0.0, 0.0],
+            pos=np.zeros(3),
+            mat=np.eye(3).flatten(),
+            rgba=np.asarray(bone_rgba, dtype=float),
+        )
+        mj.mjv_connector(
+            geom,
+            type=mj.mjtGeom.mjGEOM_CAPSULE,
+            width=bone_width,
+            from_=positions[start_name],
+            to=positions[end_name],
+        )
+
+    for body_name, pos in positions.items():
+        geom = _scene_geom(scene)
+        if geom is None:
+            return
+        mj.mjv_initGeom(
+            geom,
+            type=mj.mjtGeom.mjGEOM_SPHERE,
+            size=[joint_radius, 0.0, 0.0],
+            pos=pos,
+            mat=np.eye(3).flatten(),
+            rgba=np.asarray(joint_rgba, dtype=float),
+        )
+        if show_body_name:
+            geom.label = body_name
 
 class RobotMotionViewer:
     def __init__(self,
@@ -143,6 +226,12 @@ class RobotMotionViewer:
         if human_motion_data is not None:
             # Clean custom geometry
             self.viewer.user_scn.ngeom = 0
+            draw_human_skeleton(
+                self.viewer.user_scn,
+                human_motion_data,
+                pos_offset=human_pos_offset,
+                show_body_name=show_human_body_name,
+            )
             # Draw the task targets for reference
             for human_body_name, (pos, rot) in human_motion_data.items():
                 draw_frame(
@@ -161,6 +250,13 @@ class RobotMotionViewer:
         if self.record_video:
             # Use renderer for proper offscreen rendering
             self.renderer.update_scene(self.data, camera=self.viewer.cam)
+            if human_motion_data is not None:
+                draw_human_skeleton(
+                    self.renderer.scene,
+                    human_motion_data,
+                    pos_offset=human_pos_offset,
+                    show_body_name=show_human_body_name,
+                )
             img = self.renderer.render()
             self.mp4_writer.append_data(img)
     
@@ -192,6 +288,9 @@ class RobotMotionRenderer:
         camera_azimuth=135.0,
         camera_elevation=-12.0,
         camera_distance=None,
+        compare_human=True,
+        robot_pos_offset=np.array([0.0, -0.55, 0.0]),
+        human_pos_offset=np.array([0.0, 0.55, 0.0]),
         keyboard_callback=None,
     ):
         del keyboard_callback
@@ -213,6 +312,9 @@ class RobotMotionRenderer:
         self.camera_follow = camera_follow
         self.camera_distance = camera_distance or self.viewer_cam_distance
         self.video_path = video_path
+        self.compare_human = compare_human
+        self.robot_pos_offset = np.asarray(robot_pos_offset, dtype=float)
+        self.human_pos_offset = np.asarray(human_pos_offset, dtype=float)
 
         video_dir = os.path.dirname(self.video_path)
         if video_dir and not os.path.exists(video_dir):
@@ -244,18 +346,34 @@ class RobotMotionRenderer:
         rate_limit=True,
         follow_camera=True,
     ):
-        del human_motion_data, show_human_body_name, human_point_scale, human_pos_offset, rate_limit
+        del human_point_scale, rate_limit
 
-        self.data.qpos[:3] = root_pos
+        robot_pos_offset = (
+            self.robot_pos_offset
+            if self.compare_human and human_motion_data is not None
+            else np.zeros(3)
+        )
+        self.data.qpos[:3] = root_pos + robot_pos_offset
         self.data.qpos[3:7] = root_rot
         self.data.qpos[7:] = dof_pos
         mj.mj_forward(self.model, self.data)
 
         if self.camera_follow and follow_camera:
             self.camera.lookat[:] = self.data.xpos[self.robot_base_id]
+            if self.compare_human and human_motion_data is not None:
+                self.camera.lookat[:] = self.camera.lookat + 0.5 * (
+                    self.human_pos_offset - robot_pos_offset + human_pos_offset
+                )
             self.camera.distance = self.camera_distance
 
         self.renderer.update_scene(self.data, camera=self.camera, scene_option=self.scene_option)
+        if human_motion_data is not None:
+            draw_human_skeleton(
+                self.renderer.scene,
+                human_motion_data,
+                pos_offset=self.human_pos_offset + human_pos_offset,
+                show_body_name=show_human_body_name,
+            )
         self.mp4_writer.append_data(self.renderer.render())
 
     def close(self):
@@ -305,6 +423,9 @@ def create_robot_motion_visualizer(
     camera_azimuth=135.0,
     camera_elevation=-12.0,
     camera_distance=None,
+    compare_human=True,
+    robot_pos_offset=np.array([0.0, -0.55, 0.0]),
+    human_pos_offset=np.array([0.0, 0.55, 0.0]),
     keyboard_callback=None,
 ):
     if viewer not in {"auto", "gl", "offscreen", "none"}:
@@ -342,6 +463,9 @@ def create_robot_motion_visualizer(
             camera_azimuth=camera_azimuth,
             camera_elevation=camera_elevation,
             camera_distance=camera_distance,
+            compare_human=compare_human,
+            robot_pos_offset=robot_pos_offset,
+            human_pos_offset=human_pos_offset,
             keyboard_callback=keyboard_callback,
         )
 

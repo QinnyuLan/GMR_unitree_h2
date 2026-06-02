@@ -3,6 +3,7 @@ import json
 import pathlib
 import os
 import multiprocessing as mp
+import xml.etree.ElementTree as ET
 
 import mujoco as mj
 import numpy as np
@@ -14,7 +15,11 @@ import torch
 import pickle
 
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
-from general_motion_retargeting.utils.smpl import load_smplx_file, get_smplx_data_offline_fast
+from general_motion_retargeting.utils.smpl import (
+    estimate_smplx_ground_offset,
+    load_smplx_file,
+    get_smplx_data_offline_fast,
+)
 from general_motion_retargeting.kinematics_model import KinematicsModel
 from general_motion_retargeting import IK_CONFIG_ROOT
 import gc
@@ -36,7 +41,33 @@ def check_memory(threshold_gb=30):  # adjust based on your available memory
 HERE = pathlib.Path(__file__).parent
 
 
-def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_folder, total_files, verbose=False):
+def get_kinematics_xml_file(xml_file):
+    xml_path = pathlib.Path(xml_file)
+    root = ET.parse(xml_path).getroot()
+    if root.find("worldbody/body") is not None:
+        return str(xml_path)
+
+    include = root.find("include")
+    if include is None or "file" not in include.attrib:
+        return str(xml_path)
+
+    included_path = xml_path.parent / include.attrib["file"]
+    return str(included_path)
+
+
+def process_file(
+    smplx_file_path,
+    tgt_file_path,
+    tgt_robot,
+    SMPLX_FOLDER,
+    tgt_folder,
+    offset_to_ground,
+    ground_clearance,
+    device,
+    memory_threshold_gb,
+    total_files,
+    verbose=False,
+):
     def log_memory(message):
         if verbose:
             process = psutil.Process(os.getpid())
@@ -51,13 +82,13 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
     log_memory("Initial memory usage")
     
     num_pause = 0
-    while check_memory():
+    while check_memory(memory_threshold_gb):
         print(f"[PAUSE] Paused processing {smplx_file_path} to prevent memory overflow. num_pause: {num_pause}")
         time.sleep(60*2)
         num_pause += 1
         if num_pause > 10:
             print(f"[ERROR] Memory usage is still high after 10 pauses. Exiting.")
-            return
+            return False
 
     try:
         smplx_data, body_model, smplx_output, actual_human_height = load_smplx_file(smplx_file_path, SMPLX_FOLDER)
@@ -65,7 +96,7 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
         log_memory("After loading SMPL-X data")
     except Exception as e:
         print(f"Error loading {smplx_file_path}: {e}")
-        return
+        return False
     
   
     tgt_fps = 30
@@ -73,14 +104,24 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
         smplx_frame_data_list, aligned_fps = get_smplx_data_offline_fast(smplx_data, body_model, smplx_output, tgt_fps=tgt_fps)
     except Exception as e:
         print(f"Error processing {smplx_file_path}: {e}")
-        return
+        return False
     
     # retarget
     retargeter = GMR(
         src_human="smplx",
         tgt_robot=tgt_robot,
         actual_human_height=actual_human_height,
+        ground_clearance=ground_clearance,
+        verbose=verbose,
     )
+    if offset_to_ground:
+        retargeter.set_ground_offset(
+            estimate_smplx_ground_offset(
+                smplx_frame_data_list,
+                retargeter,
+                ground_clearance,
+            )
+        )
     qpos_list = []
     for smplx_frame_data in smplx_frame_data_list:
         qpos = retargeter.retarget(smplx_frame_data)
@@ -90,14 +131,13 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
 
     log_memory("After retargeting")
     
-    device = "cuda:0"
-    kinematics_model = KinematicsModel(retargeter.xml_file, device=device)
+    kinematics_model = KinematicsModel(get_kinematics_xml_file(retargeter.xml_file), device=device)
 
     try:
         root_pos = qpos_list[:, :3]
     except Exception as e:
         print(f"Error processing {smplx_file_path}: {e}")
-        return
+        return False
     root_rot = qpos_list[:, 3:7]
     root_rot[:, [0, 1, 2, 3]] = root_rot[:, [1, 2, 3, 0]]
     dof_pos = qpos_list[:, 7:]
@@ -115,7 +155,7 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
 
     body_names = kinematics_model.body_names
     
-    HEIGHT_ADJUST = True
+    HEIGHT_ADJUST = not offset_to_ground
     if HEIGHT_ADJUST:
         # height adjust to ensure the lowerset part is on the ground
         body_pos, _ = kinematics_model.forward_kinematics(torch.from_numpy(root_pos).to(device=device, dtype=torch.float), 
@@ -142,15 +182,11 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
 
 
     os.makedirs(os.path.dirname(tgt_file_path), exist_ok=True)
-    with open(tgt_file_path, "wb") as f:
+    tmp_file_path = f"{tgt_file_path}.{os.getpid()}.tmp"
+    with open(tmp_file_path, "wb") as f:
         pickle.dump(motion_data, f)
+    os.replace(tmp_file_path, tgt_file_path)
         
-    # Progress print based on tgt_folder
-    done = 0
-    for root, _, files in os.walk(tgt_folder):
-        done += len([f for f in files if f.endswith('.pkl')])
-    print(f"Processed {done}/{total_files}: {tgt_file_path}")
-    
     if verbose:
         # Get memory snapshot
         snapshot = tracemalloc.take_snapshot()
@@ -165,6 +201,11 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
     # clean cache
     torch.cuda.empty_cache()
     gc.collect()
+    return True
+
+
+def process_file_star(args):
+    return process_file(*args)
     
 
 
@@ -173,7 +214,7 @@ def main():
     parser.add_argument("--robot", default="unitree_g1")
     parser.add_argument(
         "--smplx_model_path",
-        default="/media/sky/Data/SMPL/smplx",
+        default="/mnt/data/SMPL-series/smplx",
         help="Path to SMPL-X body models.",
     )
     parser.add_argument("--src_folder", type=str,
@@ -185,6 +226,25 @@ def main():
     
     parser.add_argument("--override", default=False, action="store_true")
     parser.add_argument("--num_cpus", default=4, type=int)
+    parser.add_argument("--device", default="cpu", help="Torch device used by the FK post-processing step.")
+    parser.add_argument(
+        "--memory_threshold_gb",
+        default=8,
+        type=float,
+        help="Pause workers when available system memory is below this threshold.",
+    )
+    parser.add_argument(
+        "--offset_to_ground",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use a fixed sequence-level ground offset before retargeting.",
+    )
+    parser.add_argument(
+        "--ground_clearance",
+        type=float,
+        default=0.0,
+        help="Target ground clearance in meters when --offset_to_ground is enabled.",
+    )
     args = parser.parse_args()
     
     # print the total number of cpus and gpus
@@ -224,7 +284,19 @@ def main():
                 smplx_file_path = os.path.join(dirpath, filename)
                 tgt_file_path = smplx_file_path.replace(src_folder, tgt_folder).replace(".npz", ".pkl")
                 if not os.path.exists(tgt_file_path) or args.override:
-                    args_list.append((smplx_file_path, tgt_file_path, args.robot, SMPLX_FOLDER, tgt_folder))
+                    args_list.append(
+                        (
+                            smplx_file_path,
+                            tgt_file_path,
+                            args.robot,
+                            SMPLX_FOLDER,
+                            tgt_folder,
+                            args.offset_to_ground,
+                            args.ground_clearance,
+                            args.device,
+                            args.memory_threshold_gb,
+                        )
+                    )
     print("full args_list:", len(args_list))
     
     # remove hard and infeasible motions
@@ -246,7 +318,13 @@ def main():
     total_files = len(args_list)
     print(f"Total number of files to process: {total_files}")
     with mp.Pool(args.num_cpus) as pool:
-        pool.starmap(process_file, [args + (total_files, verbose) for args in args_list])
+        work_items = [args + (total_files, verbose) for args in args_list]
+        for _ in tqdm(
+            pool.imap_unordered(process_file_star, work_items),
+            total=total_files,
+            desc="Retargeting SMPL-X dataset",
+        ):
+            pass
 
     print("Done. Saved to ", tgt_folder)
 
